@@ -216,3 +216,24 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# dados e arquivos de mídia
+data/raw/
+data/synthetic/
+*.zip
+*.tar.gz
+
+# checkpoints intermediários
+checkpoints/*.pth
+checkpoints/**/*.pth
+
+# Pesos NÃO vão para o git: ~99 MB por checkpoint infla todo clone para sempre.
+# O PA1 aceita link para o modelo final ("link se for grande"); publicar como
+# GitHub Release na entrega e apontar no README.
+checkpoints/best_model.pth
+
+CLAUDE.md
+testvenv/
+# pesos das execuções de treino (os JSONs de cada run ficam versionados)
+runs/**/*.pth
+scratch/
