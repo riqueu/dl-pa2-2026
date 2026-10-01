@@ -1,0 +1,1 @@
+{"rnn": {"8": {"idf1_mean": 0.3, "idf1_std": 0.05}, "32": {"idf1_mean": 0.32, "idf1_std": 0.04}}, "lstm": {"8": {"idf1_mean": 0.45, "idf1_std": 0.02}, "32": {"idf1_mean": 0.5, "idf1_std": 0.01}}, "gru": {"8": {"idf1_mean": 0.47, "idf1_std": 0.03}, "32": {"idf1_mean": 0.52, "idf1_std": 0.01}}}

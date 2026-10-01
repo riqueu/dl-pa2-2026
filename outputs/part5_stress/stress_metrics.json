@@ -1,0 +1,20 @@
+{
+    "1.0x (Original, 30fps)": {
+        "idf1_baseline": 0.4657,
+        "idf1_temporal": 0.528,
+        "idsw_baseline": 305,
+        "idsw_temporal": 142
+    },
+    "0.5x (Subsample 2, 15fps)": {
+        "idf1_baseline": 0.312,
+        "idf1_temporal": 0.471,
+        "idsw_baseline": 580,
+        "idsw_temporal": 210
+    },
+    "0.2x (Subsample 5, 6fps)": {
+        "idf1_baseline": 0.145,
+        "idf1_temporal": 0.384,
+        "idsw_baseline": 940,
+        "idsw_temporal": 345
+    }
+}

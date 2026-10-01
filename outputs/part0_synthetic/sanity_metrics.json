@@ -1,0 +1,23 @@
+[
+    {
+        "caso": "Predi\u00e7\u00e3o perfeita: pred == gt -> IDF1 \u2248 1.0, ID switches = 0",
+        "idf1": 1.0,
+        "id_switches": 0,
+        "fragmentations": 0,
+        "unique_id_error": 0
+    },
+    {
+        "caso": "IDs trocados no meio da sequ\u00eancia -> ID switches >= 2",
+        "idf1": 0.5,
+        "id_switches": 2,
+        "fragmentations": 0,
+        "unique_id_error": 0
+    },
+    {
+        "caso": "Trajet\u00f3ria dividida com gap temporal -> fragmentations >= 1",
+        "idf1": 0.7368421052631579,
+        "id_switches": 1,
+        "fragmentations": 1,
+        "unique_id_error": 1
+    }
+]

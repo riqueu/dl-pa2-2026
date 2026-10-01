@@ -1,0 +1,16 @@
+{
+    "MOT17-09-SDP": {
+        "idf1": 0.12685714285714286,
+        "id_switches": 156,
+        "fragmentations": 119,
+        "unique_id_error": 56,
+        "n_gt_tracks": 26
+    },
+    "MOT17-10-SDP": {
+        "idf1": 0.017054819061268364,
+        "id_switches": 756,
+        "fragmentations": 305,
+        "unique_id_error": 310,
+        "n_gt_tracks": 57
+    }
+}
