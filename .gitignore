@@ -234,6 +234,7 @@ checkpoints/**/*.pth
 # GitHub Release na entrega e apontar no README.
 checkpoints/best_model.pth
 
+AGENTS.md
 CLAUDE.md
 testvenv/
 # pesos das execuções de treino (os JSONs de cada run ficam versionados)
