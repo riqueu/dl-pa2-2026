@@ -24,7 +24,7 @@ def main():
         
         # Parse result
         idf1 = 0.5 # placeholder
-        results[rate] = idf1
+        results[str(rate)] = {'idf1': idf1}
         
     plot_framerate_stress(results, 'outputs/part5_stress/framerate_stress.png')
     

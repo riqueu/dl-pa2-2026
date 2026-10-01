@@ -43,7 +43,7 @@ def main():
             "--cell_type", ct,
             "--tbptt_len", str(tbptt),
             "--seed", str(seed),
-            "--epochs", "30",
+            "--epochs", "1",
             "--checkpoint", ckpt_path,
             "--out", run_out,
         ]
