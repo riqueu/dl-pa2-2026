@@ -13,6 +13,7 @@ import itertools
 import json
 import os
 import subprocess
+import sys
 import numpy as np
 
 
@@ -38,7 +39,7 @@ def main():
 
         # 1. Treino
         train_cmd = [
-            "python", "train.py",
+            sys.executable, "train.py",
             "--cell_type", ct,
             "--tbptt_len", str(tbptt),
             "--seed", str(seed),
@@ -50,7 +51,7 @@ def main():
 
         # 2. Avaliação
         eval_cmd = [
-            "python", "evaluate.py",
+            sys.executable, "evaluate.py",
             "--mode", "temporal",
             "--checkpoint", ckpt_path,
             "--cell_type", ct,
@@ -64,10 +65,10 @@ def main():
         if os.path.exists(summary_file):
             with open(summary_file, 'r') as f:
                 metrics = json.load(f)
-            idf1 = metrics.get('mean_idf1', 0.0)
-            idsw = metrics.get('total_id_switches', 0)
+            idf1 = metrics['idf1']
+            idsw = metrics['id_switches']
         else:
-            idf1, idsw = 0.0, 0
+            raise FileNotFoundError(summary_file)
 
         results.append({
             "cell_type": ct,

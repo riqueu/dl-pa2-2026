@@ -7,8 +7,6 @@ from tqdm import tqdm
 
 from src.data.mot17 import (
     load_ground_truth,
-    load_detections,
-    list_sequences,
     get_train_val_split,
     load_seqinfo,
     load_frame_image,
@@ -18,7 +16,6 @@ from src.tracking.tracker import BaselineTracker, TemporalTracker
 from src.tracking.temporal_model import MotionRNN
 from src.metrics import evaluate_sequence
 from src.visualization import plot_metrics_over_sequences
-from src.nms import nms
 
 
 def parse_args():
@@ -26,6 +23,7 @@ def parse_args():
     parser.add_argument("--mode", type=str, choices=["baseline", "temporal"], default="temporal")
     parser.add_argument("--checkpoint", type=str, default="checkpoints/motion_model.pth")
     parser.add_argument("--cell_type", type=str, choices=["gru", "lstm", "rnn"], default="gru")
+    parser.add_argument("--num_layers", type=int, default=1)
     parser.add_argument("--hidden_dim", type=int, default=64)
     parser.add_argument("--det_type", type=str, choices=["SDP", "DPM", "FRCNN"], default="SDP")
     parser.add_argument("--det_source", type=str, choices=["mot17", "torchvision"], default="mot17")
@@ -43,6 +41,8 @@ def parse_args():
 
 def main():
     args = parse_args()
+    if args.subsample < 1:
+        raise ValueError("subsample deve ser >= 1.")
     device = torch.device(args.device)
     os.makedirs(args.output_dir, exist_ok=True)
 
@@ -55,36 +55,37 @@ def main():
     # 1. Setup temporal model if needed
     model = None
     if args.mode == "temporal":
-        model = MotionRNN(input_dim=4, hidden_dim=args.hidden_dim, cell_type=args.cell_type)
+        model = MotionRNN(input_dim=4, hidden_dim=args.hidden_dim, cell_type=args.cell_type, num_layers=args.num_layers)
         if os.path.exists(args.checkpoint):
-            model.load_state_dict(torch.load(args.checkpoint, map_location=device))
+            model.load_state_dict(torch.load(args.checkpoint, map_location=device, weights_only=True))
             print(f"Loaded checkpoint: {args.checkpoint}")
         else:
-            print(f"[WARNING] Checkpoint not found at {args.checkpoint}. Using untrained weights.")
+            raise FileNotFoundError(f"Checkpoint não encontrado: {args.checkpoint}")
         model.to(device)
         model.eval()
 
     # 2. Get sequences
-    splits = get_train_val_split()
-    seqs = splits.get(args.split, [])
-    # Filter by detector type
-    seqs = [s for s in seqs if args.det_type in s]
-
-    if not seqs:
-        print(f"No sequences found for split '{args.split}' and det_type '{args.det_type}'.")
-        return
+    train_seqs, val_seqs = get_train_val_split(args.det_type)
+    seqs = train_seqs if args.split == "train" else val_seqs
 
     per_sequence_results = {}
     summary_metrics = {}
 
     for seq in seqs:
         print(f"\nEvaluating sequence: {seq}")
-        seqinfo = load_seqinfo(args.data_root, seq)
-        gt_tracks = load_ground_truth(args.data_root, seq)
+        seq_path = os.path.join(args.data_root, "MOT17", "train", seq)
+        required_files = ["seqinfo.ini", "gt/gt.txt"]
+        if args.det_source == "mot17":
+            required_files.append("det/det.txt")
+        for required in required_files:
+            if not os.path.isfile(os.path.join(seq_path, required)):
+                raise FileNotFoundError(os.path.join(seq_path, required))
+        seqinfo = load_seqinfo(seq_path)
+        gt_tracks, _ = load_ground_truth(seq_path)
 
         # Setup detector
         if args.det_source == "mot17":
-            detector = MOT17DetectionLoader(args.data_root, seq)
+            detector = MOT17DetectionLoader(seq_path)
         else:
             detector = TorchvisionDetector(device=device)
 
@@ -98,33 +99,44 @@ def main():
             )
         else:
             tracker = TemporalTracker(
-                model=model,
+                motion_model=model,
                 iou_threshold=args.iou_threshold,
                 max_age=args.max_age,
                 min_hits=args.min_hits,
                 matching=args.matching,
-                device=device
+                device=device,
+                img_width=seqinfo["imWidth"],
+                img_height=seqinfo["imHeight"]
             )
 
-        predicted_tracks = []
+        predicted_tracks = {}
         seq_length = seqinfo["seqLength"]
+        if seq_length < 1:
+            raise ValueError(f"Sequência vazia: {seq}")
         frames_to_process = list(range(1, seq_length + 1, args.subsample))
+
+        sampled_frames = set(frames_to_process)
 
         # Run tracking loop
         for frame_id in tqdm(frames_to_process, desc=f"Tracking {seq}"):
             if args.det_source == "torchvision":
-                img = load_frame_image(args.data_root, seq, frame_id)
-                dets = detector(img)
+                img = load_frame_image(seq_path, frame_id)
+                dets = detector.detect(img)
             else:
                 # MOT17 detections are usually pre-loaded or queried by frame
-                dets = detector.get_frame_detections(frame_id)
+                dets = detector.get_detections(frame_id)
 
             # Update tracker
-            active_tracks = tracker.update(dets, frame_id)
-            predicted_tracks.extend(active_tracks)
+            active_tracks = tracker.update(dets)
+            for track in active_tracks:
+                predicted_tracks.setdefault(track.track_id, {})[frame_id] = track.bbox.copy()
 
         # Evaluate
-        seq_metrics = evaluate_sequence(predicted_tracks, gt_tracks)
+        seq_metrics = evaluate_sequence(
+            {track_id: {f: box for f, box in frames.items() if f in sampled_frames}
+             for track_id, frames in gt_tracks.items()
+             if any(f in sampled_frames for f in frames)}, predicted_tracks)
+        seq_metrics["n_gt_tracks"] = len(gt_tracks)
         per_sequence_results[seq] = seq_metrics
 
         # Print per sequence results
@@ -155,10 +167,8 @@ def main():
 
         print(f"\nMetrics saved to {args.output_dir}")
 
-        # Plot metrics
-        # plot_metrics_over_sequences(per_sequence_results) wait, signature is in the prompt?
-        # The prompt says: "Generate plots: - IDF1 per sequence (sorted by difficulty) using src.visualization.plot_metrics_over_sequences"
-        plot_metrics_over_sequences(per_sequence_results)
+        # Save plot for reproducible review.
+        plot_metrics_over_sequences(per_sequence_results, output_path=os.path.join(args.output_dir, "idf1.png"))
         print(f"Plot generated.")
 
 

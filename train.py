@@ -69,29 +69,13 @@ def main():
 
         gt_tracks, _ = load_ground_truth(seq_path)
 
-        # Reformat gt_tracks for extract_training_sequences and normalize to seqinfo
-        formatted_gt_tracks = {}
-        scale_w = 1920.0 / im_width
-        scale_h = 1080.0 / im_height
-
-        for track_id, frames_dict in gt_tracks.items():
-            sorted_frames = sorted(frames_dict.keys())
-            formatted_track = []
-            for fid in sorted_frames:
-                x1, y1, x2, y2 = frames_dict[fid]
-                # Pre-scale so that when extract_training_sequences divides by 1920x1080, 
-                # it correctly normalizes by the actual image width and height.
-                scaled_bbox = [x1 * scale_w, y1 * scale_h, x2 * scale_w, y2 * scale_h]
-                formatted_track.append({"bbox": scaled_bbox})
-            formatted_gt_tracks[track_id] = formatted_track
-
-        # Extract sequences
-        seqs = extract_training_sequences(formatted_gt_tracks, min_length=10)
+        seqs = extract_training_sequences(
+            gt_tracks, min_length=10, img_width=im_width, img_height=im_height)
         all_sequences.extend(seqs)
 
     if not all_sequences:
         print("No training sequences found. Check your data root and split.")
-        return
+        raise SystemExit(1)
 
     print(f"Extracted {len(all_sequences)} sequences for training.")
 
@@ -112,7 +96,8 @@ def main():
         epochs=args.epochs,
         lr=args.lr,
         tbptt_len=args.tbptt_len,
-        device=args.device
+        device=args.device,
+        batch_size=args.batch_size
     )
     elapsed = time.time() - start_time
 
