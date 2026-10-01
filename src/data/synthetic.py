@@ -26,19 +26,86 @@ def generate_synthetic_video(
           elipses com menor profundidade devem ser sobrepostas por elipses mais próximas.
         - Rebate nas bordas do canvas para manter os objetos em cena.
 
-    Args:
-        n_frames: Quantidade de quadros no vídeo.
-        n_objects: Quantidade de objetos móveis.
-        img_size: Resolução quadrada (128x128).
-        noise_std: Desvio-padrão do ruído gaussiano adicionado.
-        seed: Semente pseudoaleatória para reprodutibilidade.
-
     Returns:
-        frames: Array uint8 (n_frames, img_size, img_size, 3) no formato BGR ou RGB.
-        gt_tracks: Dict indexado por track_id: {frame_id: bbox_xyxy em np.ndarray}.
-        gt_per_frame: Dict indexado por frame_id: [{'track_id': int, 'bbox': np.ndarray, 'visibility': float}].
+        frames: Array uint8 (n_frames, img_size, img_size, 3).
+        gt_tracks: Dict {track_id: {frame_id: bbox_xyxy}}.
+        gt_per_frame: Dict {frame_id: [{'track_id': int, 'bbox': np.ndarray, 'visibility': float}]}.
     """
-    raise NotImplementedError("Henrique: implementar gerador sintético procedural com oclusões via z-buffer.")
+    rng = np.random.RandomState(seed)
+
+    frames = np.zeros((n_frames, img_size, img_size, 3), dtype=np.uint8)
+    gt_tracks: Dict[int, Dict[int, np.ndarray]] = {i + 1: {} for i in range(n_objects)}
+    gt_per_frame: Dict[int, List[Dict]] = {f + 1: [] for f in range(n_frames)}
+
+    # Propriedades de cada objeto
+    depths = rng.permutation(n_objects)  # Maior profundidade = renderizado depois (na frente)
+    render_order = np.argsort(depths)
+
+    # Semi-eixos das elipses (raios horizontal e vertical)
+    axes = rng.randint(6, 18, size=(n_objects, 2))
+    # Cores distintas
+    colors = rng.randint(60, 240, size=(n_objects, 3)).tolist()
+    # Posições iniciais [x, y]
+    positions = rng.uniform(25, img_size - 25, size=(n_objects, 2)).astype(np.float32)
+    # Velocidades [vx, vy]
+    velocities = rng.uniform(-4.0, 4.0, size=(n_objects, 2)).astype(np.float32)
+
+    for f in range(n_frames):
+        frame_id = f + 1
+
+        # Canvas base com contraste variável
+        contrast = rng.uniform(0.85, 1.15)
+        base = np.full((img_size, img_size, 3), int(np.clip(120 * contrast, 40, 200)), dtype=np.uint8)
+
+        # Atualiza posições e rebate nas bordas
+        for obj_idx in range(n_objects):
+            positions[obj_idx] += velocities[obj_idx]
+            ax, ay = axes[obj_idx]
+
+            # Bouncing
+            if positions[obj_idx, 0] - ax <= 0:
+                positions[obj_idx, 0] = ax
+                velocities[obj_idx, 0] *= -1.0
+            elif positions[obj_idx, 0] + ax >= img_size:
+                positions[obj_idx, 0] = img_size - ax
+                velocities[obj_idx, 0] *= -1.0
+
+            if positions[obj_idx, 1] - ay <= 0:
+                positions[obj_idx, 1] = ay
+                velocities[obj_idx, 1] *= -1.0
+            elif positions[obj_idx, 1] + ay >= img_size:
+                positions[obj_idx, 1] = img_size - ay
+                velocities[obj_idx, 1] *= -1.0
+
+        # Renderiza elipses em ordem de profundidade (back-to-front / z-buffer)
+        for obj_idx in render_order:
+            cx, cy = int(positions[obj_idx, 0]), int(positions[obj_idx, 1])
+            ax, ay = int(axes[obj_idx, 0]), int(axes[obj_idx, 1])
+            color = colors[obj_idx]
+
+            cv2.ellipse(base, (cx, cy), (ax, ay), 0, 0, 360, color, -1)
+
+            # Bounding box delimitador exato da elipse
+            x1 = float(np.clip(cx - ax, 0, img_size))
+            y1 = float(np.clip(cy - ay, 0, img_size))
+            x2 = float(np.clip(cx + ax, 0, img_size))
+            y2 = float(np.clip(cy + ay, 0, img_size))
+            bbox = np.array([x1, y1, x2, y2], dtype=np.float32)
+
+            track_id = obj_idx + 1
+            gt_tracks[track_id][frame_id] = bbox
+            gt_per_frame[frame_id].append({
+                'track_id': track_id,
+                'bbox': bbox,
+                'visibility': 1.0,
+            })
+
+        # Adiciona ruído gaussiano
+        noise = rng.randn(img_size, img_size, 3) * (noise_std * 255.0)
+        frame_noisy = np.clip(base.astype(np.float32) + noise, 0, 255).astype(np.uint8)
+        frames[f] = frame_noisy
+
+    return frames, gt_tracks, gt_per_frame
 
 
 def degrade_detections(
@@ -49,37 +116,82 @@ def degrade_detections(
     img_size: int = 128,
     seed: int = 42,
 ) -> Dict[int, List[Dict]]:
-    """Simulador de detector imperfeito sobre as anotações perfeitas do GT.
+    """Simulador de detector imperfeito sobre as anotações do GT."""
+    rng = np.random.RandomState(seed)
+    degraded: Dict[int, List[Dict]] = {}
 
-    Requisitos do Edital (Parte 0):
-        - Recebe as bounding boxes perfeitas e degrada propositalmente:
-          1. Dropa p% das detecções (falsos negativos).
-          2. Adiciona ruído gaussiano nas coordenadas [x1, y1, x2, y2].
-          3. Injeta falsos positivos espalhados pelo canvas.
+    for frame_id, objects in gt_per_frame.items():
+        degraded[frame_id] = []
+        for obj in objects:
+            # Dropa p% das detecções (falsos negativos)
+            if rng.rand() < drop_rate:
+                continue
 
-    Args:
-        gt_per_frame: Dicionário retornado pelo gerador sintético.
-        drop_rate: Fração de detecções a remover aleatoriamente.
-        noise_std: Desvio padrão do ruído adicionado às coordenadas.
-        fp_rate: Taxa de injeção de falsos positivos por frame.
-        img_size: Tamanho do frame para limitar coordenadas válidas.
-        seed: Semente pseudoaleatória.
+            bbox = obj['bbox'].copy()
+            # Ruído nas coordenadas
+            bbox += rng.randn(4).astype(np.float32) * noise_std
+            bbox[0] = float(np.clip(bbox[0], 0, img_size))
+            bbox[1] = float(np.clip(bbox[1], 0, img_size))
+            bbox[2] = float(np.clip(bbox[2], 0, img_size))
+            bbox[3] = float(np.clip(bbox[3], 0, img_size))
 
-    Returns:
-        Dicionário {frame_id: [{'bbox': np.ndarray, 'confidence': float}, ...]}.
-    """
-    raise NotImplementedError("Henrique: implementar simulador de degradação de detecções.")
+            if bbox[2] <= bbox[0] or bbox[3] <= bbox[1]:
+                continue
+
+            degraded[frame_id].append({
+                'bbox': bbox,
+                'confidence': float(rng.uniform(0.6, 0.98)),
+            })
+
+        # Falsos positivos
+        num_fp = rng.poisson(fp_rate * max(1, len(objects)))
+        for _ in range(num_fp):
+            w = rng.uniform(10, 30)
+            h = rng.uniform(10, 30)
+            x1 = rng.uniform(0, img_size - w)
+            y1 = rng.uniform(0, img_size - h)
+            bbox_fp = np.array([x1, y1, x1 + w, y1 + h], dtype=np.float32)
+            degraded[frame_id].append({
+                'bbox': bbox_fp,
+                'confidence': float(rng.uniform(0.1, 0.5)),
+            })
+
+    return degraded
 
 
 def create_metric_edge_cases() -> List[Tuple[Dict, Dict, str]]:
-    """Cria os 3 cenários de teste manuais exigidos pelo edital para validação das métricas.
+    """Cria os 3 cenários de teste manuais exigidos pelo edital para validação das métricas."""
+    # GT de base: 2 tracks ao longo de 10 frames
+    gt_tracks = {
+        1: {f: np.array([10.0, 10.0, 25.0, 25.0], dtype=np.float32) for f in range(1, 11)},
+        2: {f: np.array([50.0, 50.0, 65.0, 65.0], dtype=np.float32) for f in range(1, 11)},
+    }
 
-    Edge Cases Obrigatórios:
-        1. Predição perfeita: pred_tracks == gt_tracks -> IDF1 ≈ 1.0, ID switches = 0, frag = 0.
-        2. IDs trocados no meio da sequência -> ID switches = 2, IDF1 cai.
-        3. Trajetória dividida (split tracks com gap) -> fragmentations >= 1.
+    # 1. Predição perfeita
+    pred_perfect = {
+        1: {f: np.array([10.0, 10.0, 25.0, 25.0], dtype=np.float32) for f in range(1, 11)},
+        2: {f: np.array([50.0, 50.0, 65.0, 65.0], dtype=np.float32) for f in range(1, 11)},
+    }
 
-    Returns:
-        Lista de tuplas (gt_tracks, pred_tracks, descricao).
-    """
-    raise NotImplementedError("Henrique: montar os 3 edge cases manuais do edital.")
+    # 2. IDs invertidos no frame 6
+    pred_swapped = {
+        1: {f: np.array([10.0, 10.0, 25.0, 25.0], dtype=np.float32) for f in range(1, 6)},
+        2: {f: np.array([50.0, 50.0, 65.0, 65.0], dtype=np.float32) for f in range(1, 6)},
+    }
+    # Troca de identificador
+    pred_swapped[1].update({f: np.array([50.0, 50.0, 65.0, 65.0], dtype=np.float32) for f in range(6, 11)})
+    pred_swapped[2].update({f: np.array([10.0, 10.0, 25.0, 25.0], dtype=np.float32) for f in range(6, 11)})
+
+    # 3. Trajetórias divididas com gap temporal
+    # Track 1 coberto pelo Pred 1 (frames 1-4) e Pred 3 (frames 7-10), gap nos frames 5-6
+    pred_split = {
+        1: {f: np.array([10.0, 10.0, 25.0, 25.0], dtype=np.float32) for f in range(1, 5)},
+        2: {f: np.array([50.0, 50.0, 65.0, 65.0], dtype=np.float32) for f in range(1, 11)},
+        3: {f: np.array([10.0, 10.0, 25.0, 25.0], dtype=np.float32) for f in range(7, 11)},
+    }
+
+    return [
+        (gt_tracks, pred_perfect, "Predição perfeita: pred == gt -> IDF1 ≈ 1.0, ID switches = 0"),
+        (gt_tracks, pred_swapped, "IDs trocados no meio da sequência -> ID switches >= 2"),
+        (gt_tracks, pred_split, "Trajetória dividida com gap temporal -> fragmentations >= 1"),
+    ]
