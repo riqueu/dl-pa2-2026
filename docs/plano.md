@@ -1,11 +1,4 @@
-# Plano Definitivo de Ataque — PA2: Multi-Object Tracking (MOT17)
-
-> **Disciplina:** Aprendizado Profundo (FGV EMAp — 2026/2)  
-> **Entrega & Apresentação:** 02/10/2026 às 23h59  
-> **Dupla:** Henrique Coelho Beltrão & Isaias Gouvêa Gonçalves  
-> **Hardware Principal:** NVIDIA GeForce RTX 4070  
-
----
+# Plano Definitivo de Ataque - PA2: Multi-Object Tracking (MOT17)
 
 ## 1. Decisões Estratégicas Fechadas (Trilhas & Eixos)
 
@@ -13,8 +6,8 @@ Após análise técnica de viabilidade, tempo de convergência e alinhamento com
 
 | Componente | Escolha Oficial | Justificativa |
 | :--- | :---: | :--- |
-| **Parte 2 (Trilha)** | **Trilha A — RNN para Movimento** | Modela dinâmicas de trajetória espacial ($[c_x, c_y, w, h]$). Convergência rápida na RTX 4070, visualização intuitiva e integração direta com o matching por IoU da Parte 1. |
-| **Parte 3 (Ablação)** | **Eixo 1 — Célula Recorrente** | Compara SimpleRNN vs. LSTM vs. GRU sob diferentes janelas de BPTT truncado ($T \in \{8, 32\}$) ao longo de 3 sementes ($42, 123, 456$). Produz gráficos limpos e resposta direta sobre vanishing gradient. |
+| **Parte 2 (Trilha)** | **Trilha A - RNN para Movimento** | Modela dinâmicas de trajetória espacial ($[c_x, c_y, w, h]$). Convergência rápida na RTX 4070, visualização intuitiva e integração direta com o matching por IoU da Parte 1. |
+| **Parte 3 (Ablação)** | **Eixo 1 - Célula Recorrente** | Compara SimpleRNN vs. LSTM vs. GRU sob diferentes janelas de BPTT truncado ($T \in \{8, 32\}$) ao longo de 3 sementes ($42, 123, 456$). Produz gráficos limpos e resposta direta sobre vanishing gradient. |
 | **Parte 5 (Estresse)** | **Framerate Drop** | Avalia a robustez do rastreador sob saltos temporais severos ($1\times$, $1/2\times$ e $1/5\times$), testando a capacidade de extrapolação da RNN quando $\Delta t$ aumenta. |
 | **Detecções MOT17** | **SDP (Scale-Dependent Pooling)** | Maior taxa de recall e precisão entre os detectores públicos, gerando um baseline consistente para evidenciar os ganhos temporais. |
 | **Split por Sequência** | **Treino:** `02, 04, 05, 11, 13`<br>**Validação:** `09, 10` | Atende à regra mandatória do edital de separar sequências inteiras sem vazamento temporal. `MOT17-09` e `10` são ideais para validação. |
@@ -48,7 +41,7 @@ A divisão garante isolamento total de arquivos entre as branches para evitar co
                  ┌────────────────────┴────────────────────┐
                  ▼                                         ▼
    feature/data-metrics-association        feature/detection-tracking-model
-   (Membro 1 — Henrique)                  (Membro 2 — Isaias)
+   (Membro 1 - Henrique)                  (Membro 2 - Isaias)
    • src/metrics.py                       • src/nms.py
    • src/data/synthetic.py                • src/detection/detector.py
    • src/tracking/association.py          • src/tracking/tracker.py
@@ -69,7 +62,7 @@ A divisão garante isolamento total de arquivos entre as branches para evitar co
 
 ---
 
-### Membro 1 (Henrique) — Dados Sintéticos, Métricas & Associação
+### Membro 1 (Henrique) - Dados Sintéticos, Métricas & Associação
 
 *   **Branch de Trabalho:** `feature/data-metrics-association`
 *   **Módulos Sob Sua Responsabilidade:**
@@ -92,7 +85,7 @@ A divisão garante isolamento total de arquivos entre as branches para evitar co
 
 ---
 
-### Membro 2 (Isaias) — NMS, Provedores de Detecção & Pipeline Recorrente
+### Membro 2 (Isaias) - NMS, Provedores de Detecção & Pipeline Recorrente
 
 *   **Branch de Trabalho:** `feature/detection-tracking-model`
 *   **Módulos Sob Sua Responsabilidade:**

@@ -216,12 +216,12 @@ def plot_metrics_over_sequences(
 def plot_gradient_horizon(
     grad_norms: Dict[int, float],
     output_path: Optional[str] = None,
-    title: str = 'Horizonte de Memória — Norma do Gradiente vs. k',
+    title: str = 'Horizonte de Memória - Norma do Gradiente vs. k',
 ) -> None:
     """Plota a norma do gradiente ∂L_t/∂h_{t-k} em função de k.
 
     Args:
-        grad_norms: {k: norm} — norma média do gradiente para cada distância k.
+        grad_norms: {k: norm} - norma média do gradiente para cada distância k.
         output_path: Caminho para salvar.
         title: Título do gráfico.
     """
@@ -246,7 +246,7 @@ def plot_gradient_horizon(
 def plot_framerate_stress(
     results: Dict[str, Dict[str, float]],
     output_path: Optional[str] = None,
-    title: str = 'Teste de Estresse — IDF1 vs. Framerate',
+    title: str = 'Teste de Estresse - IDF1 vs. Framerate',
 ) -> None:
     """Plota IDF1 degradation vs. framerate reduction.
 
@@ -279,7 +279,7 @@ def plot_framerate_stress(
 def plot_ablation_results(
     results: Dict[str, Dict[str, Dict[str, float]]],
     output_path: Optional[str] = None,
-    title: str = 'Ablação Eixo 1 — Célula Recorrente × TBPTT',
+    title: str = 'Ablação Eixo 1 - Célula Recorrente × TBPTT',
 ) -> None:
     """Plota resultados de ablação como barras agrupadas.
 

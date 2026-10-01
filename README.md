@@ -1,7 +1,7 @@
-# PA2 — Multi-Object Tracking com Memória Temporal (RNN)
+# PA2 - Multi-Object Tracking com Memória Temporal (RNN)
 
 Programming Assignment 2 da disciplina de Aprendizado Profundo (FGV EMAp).
-Rastreamento multi-objeto (MOT) sobre o benchmark MOT17 utilizando associação autoral, modelo temporal recorrente (Trilha A — RNN para Movimento) e ablações sobre células recorrentes.
+Rastreamento multi-objeto (MOT) sobre o benchmark MOT17 utilizando associação autoral, modelo temporal recorrente (Trilha A - RNN para Movimento) e ablações sobre células recorrentes.
 
 ## Autores
 - [Henrique Coelho Beltrão](https://github.com/riqueu)
@@ -14,7 +14,7 @@ Rastreamento multi-objeto (MOT) sobre o benchmark MOT17 utilizando associação 
 O projeto implementa **do zero** um sistema de tracking multi-objeto com:
 - **Parte 0:** Testes sintéticos (gerador de vídeos + detector simulator + validação de métricas)
 - **Parte 1:** Baseline frame-by-frame (detecções SDP + torchvision FRCNN, associação por IoU)
-- **Parte 2:** Memória temporal via RNN de movimento (Trilha A — GRU prediz próximo bounding box)
+- **Parte 2:** Memória temporal via RNN de movimento (Trilha A - GRU prediz próximo bounding box)
 - **Parte 3:** Ablação Eixo 1 (SimpleRNN vs LSTM vs GRU × TBPTT ∈ {8, 32} × 3 seeds)
 - **Parte 4:** Galeria de falhas + horizonte de memória (gradiente ∂L_t/∂h_{t-k} + sobrevivência em oclusão)
 - **Parte 5:** Teste de estresse por queda de framerate (1/2 e 1/5)
@@ -73,7 +73,7 @@ data/
 
 ### 4.1. Comandos Principais (Edital)
 
-- **Treinamento do modelo temporal (Trilha A — GRU):**
+- **Treinamento do modelo temporal (Trilha A - GRU):**
   ```bash
   python train.py --cell_type gru --hidden_dim 64 --epochs 50 --lr 1e-3 --tbptt_len 16 --checkpoint checkpoints/motion_gru.pth
   ```
@@ -86,19 +86,19 @@ data/
 ### 4.2. Comandos Adicionais para Reprodução
 
 ```bash
-# Parte 0 — Testes sintéticos e validação de métricas
+# Parte 0 - Testes sintéticos e validação de métricas
 python -m pytest tests/test_metrics.py tests/test_synthetic.py tests/test_nms.py -v
 
-# Parte 1 — Baseline frame-by-frame (sem modelo temporal)
+# Parte 1 - Baseline frame-by-frame (sem modelo temporal)
 python evaluate.py --mode baseline --det_type SDP --split val --output-dir outputs/part1_baseline
 
-# Parte 3 — Ablação Eixo 1 (3 células × 2 TBPTT × 3 seeds = 18 runs)
+# Parte 3 - Ablação Eixo 1 (3 células × 2 TBPTT × 3 seeds = 18 runs)
 python scripts/run_ablation_eixo1.py
 
-# Parte 4 — Galeria de falhas + horizonte de memória
+# Parte 4 - Galeria de falhas + horizonte de memória
 python scripts/run_failure_gallery.py --checkpoint checkpoints/motion_gru.pth
 
-# Parte 5 — Teste de estresse de framerate
+# Parte 5 - Teste de estresse de framerate
 python scripts/run_stress_framerate.py --checkpoint checkpoints/motion_gru.pth
 ```
 
