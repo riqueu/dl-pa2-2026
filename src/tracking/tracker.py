@@ -15,6 +15,9 @@ import numpy as np
 import torch
 import torch.nn as nn
 
+from .association import compute_iou_matrix, greedy_matching, hungarian_matching
+from .temporal_model import HiddenState
+
 
 @dataclass
 class TrackState:
@@ -24,7 +27,7 @@ class TrackState:
     age: int = 0  # total de frames desde nascimento
     hits: int = 0  # total de detecções associadas
     time_since_update: int = 0  # frames consecutivos sem associação
-    rnn_hidden: Optional[torch.Tensor] = None  # estado oculto da RNN (para TemporalTracker)
+    rnn_hidden: Optional[HiddenState] = None  # estado oculto da RNN (para TemporalTracker)
 
 
 class BaselineTracker:
@@ -44,6 +47,10 @@ class BaselineTracker:
         min_hits: int = 3,
         matching: str = 'hungarian',
     ):
+        if matching not in ("hungarian", "greedy"):
+            raise ValueError("matching deve ser hungarian ou greedy.")
+        if not 0 <= iou_threshold <= 1 or max_age < 0 or min_hits < 1:
+            raise ValueError("Parâmetros de ciclo de vida inválidos.")
         self.iou_threshold = iou_threshold
         self.max_age = max_age
         self.min_hits = min_hits
@@ -65,7 +72,30 @@ class BaselineTracker:
         Returns:
             Lista de tracks confirmados ativos no frame atual.
         """
-        raise NotImplementedError("Isaias: implementar lógica de ciclo de vida e associação do BaselineTracker.")
+        self._associate(detections)
+        # Baseline guarda tracks perdidos, mas só reporta observações atuais.
+        return [track for track in self.tracks
+                if track.hits >= self.min_hits and track.time_since_update == 0]
+
+    def _associate(self, detections):
+        boxes = np.asarray([d["bbox"] for d in detections], dtype=np.float32).reshape(-1, 4)
+        if not np.isfinite(boxes).all() or np.any(boxes[:, 2:] <= boxes[:, :2]):
+            raise ValueError("Detecções devem ter caixas finitas com área positiva.")
+        for track in self.tracks:
+            track.age += 1
+            track.time_since_update += 1
+        track_boxes = np.asarray([t.bbox for t in self.tracks]).reshape(-1, 4)
+        matcher = hungarian_matching if self.matching == "hungarian" else greedy_matching
+        matches, _, unmatched = matcher(compute_iou_matrix(track_boxes, boxes), self.iou_threshold)
+        for track_idx, det_idx in matches:
+            track = self.tracks[track_idx]
+            track.bbox = boxes[det_idx].copy()
+            track.hits += 1
+            track.time_since_update = 0
+        for det_idx in unmatched:
+            self.tracks.append(TrackState(self.next_id, boxes[det_idx].copy(), age=1, hits=1))
+            self.next_id += 1
+        self.tracks = [t for t in self.tracks if t.time_since_update <= self.max_age]
 
 
 class TemporalTracker(BaselineTracker):
@@ -87,11 +117,32 @@ class TemporalTracker(BaselineTracker):
         min_hits: int = 3,
         matching: str = 'hungarian',
         device: str = 'cuda' if torch.cuda.is_available() else 'cpu',
+        img_width: float = 1920.0,
+        img_height: float = 1080.0,
     ):
         super().__init__(iou_threshold, max_age, min_hits, matching)
-        self.motion_model = motion_model
+        if img_width <= 0 or img_height <= 0:
+            raise ValueError("Dimensões da imagem devem ser positivas.")
+        self.motion_model = motion_model.to(device).eval()
         self.device = device
+        self.scale = np.array([img_width, img_height], dtype=np.float32)
 
     def update(self, detections: List[Dict]) -> List[TrackState]:
         """Executa o ciclo temporal de predição -> matching -> atualização de hidden state."""
-        raise NotImplementedError("Isaias: implementar matching temporal com predições da MotionRNN.")
+        with torch.no_grad():
+            for track in self.tracks:
+                prediction, _ = self.motion_model.predict_single(track.rnn_hidden)
+                prediction = np.asarray(prediction, dtype=np.float32)
+                if prediction.shape != (4,) or not np.isfinite(prediction).all():
+                    raise ValueError("Predição temporal inválida.")
+                center = prediction[:2] * self.scale
+                size = np.maximum(prediction[2:] * self.scale, 1.0)
+                track.bbox = np.concatenate((center - size / 2, center + size / 2))
+            self._associate(detections)
+            for track in self.tracks:
+                center = (track.bbox[:2] + track.bbox[2:]) / 2 / self.scale
+                size = (track.bbox[2:] - track.bbox[:2]) / self.scale
+                observation = torch.as_tensor(np.concatenate((center, size)),
+                                              dtype=torch.float32, device=self.device).reshape(1, 1, 4)
+                _, track.rnn_hidden = self.motion_model(observation, track.rnn_hidden)
+        return [t for t in self.tracks if t.hits >= self.min_hits]
