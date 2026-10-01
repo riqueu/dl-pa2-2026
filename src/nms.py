@@ -34,4 +34,27 @@ def nms(
     Returns:
         Array numpy 1D com os índices das caixas selecionadas/mantidas.
     """
-    raise NotImplementedError("Isaias: implementar algoritmo NMS com NumPy.")
+    boxes = np.asarray(boxes, dtype=np.float32)
+    scores = np.asarray(scores, dtype=np.float32)
+    if boxes.shape != (len(scores), 4) or scores.ndim != 1:
+        raise ValueError("Esperado boxes (N, 4) e scores (N,).")
+    if not 0 <= iou_threshold <= 1:
+        raise ValueError("iou_threshold deve estar em [0, 1].")
+    if not np.isfinite(boxes).all() or not np.isfinite(scores).all():
+        raise ValueError("Caixas e scores devem ser finitos.")
+    order = np.argsort(-scores, kind="stable")
+    size = np.maximum(boxes[:, 2:] - boxes[:, :2], 0)
+    areas = size[:, 0] * size[:, 1]
+    keep = []
+    while order.size:
+        current = int(order[0])
+        keep.append(current)
+        rest = order[1:]
+        intersection_size = np.maximum(
+            np.minimum(boxes[current, 2:], boxes[rest, 2:])
+            - np.maximum(boxes[current, :2], boxes[rest, :2]), 0)
+        intersection = intersection_size[:, 0] * intersection_size[:, 1]
+        union = areas[current] + areas[rest] - intersection
+        iou = np.divide(intersection, union, out=np.zeros_like(union), where=union > 0)
+        order = rest[iou <= iou_threshold]
+    return np.asarray(keep, dtype=np.int64)

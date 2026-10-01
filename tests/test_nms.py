@@ -38,3 +38,9 @@ def test_single_box():
     keep = nms(boxes, scores, iou_threshold=0.5)
     assert len(keep) == 1
     assert keep[0] == 0
+
+
+def test_threshold_equality_and_degenerate_boxes():
+    boxes = np.array([[0, 0, 10, 10], [0, 0, 10, 10], [2, 2, 2, 2]])
+    assert list(nms(boxes, np.array([.9, .8, .7]), iou_threshold=1)) == [0, 1, 2]
+    assert list(nms(boxes, np.array([.9, .8, .7]), iou_threshold=.5)) == [0, 2]
