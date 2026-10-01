@@ -220,6 +220,8 @@ __marimo__/
 # dados e arquivos de mídia
 data/raw/
 data/synthetic/
+data/MOT17/
+data/MOT17Labels/
 *.zip
 *.tar.gz
 
