@@ -114,3 +114,35 @@ python scripts/run_stress_framerate.py --checkpoint checkpoints/motion_gru.pth
 
 - [AI_LOG.md](AI_LOG.md): Registro de uso de ferramentas de IA.
 - [docs/plano.md](docs/plano.md): Plano de implementação e divisão de tarefas.
+
+## 7. Implementação e validação da parte de Isaías
+
+NMS, provedores de detecção, baseline, tracker temporal e MotionRNN estão implementados.
+A rede suporta RNN/LSTM/GRU, estados independentes por track e treino com TBPTT,
+Smooth L1 e gradient clipping. Treino e inferência usam as dimensões reais da sequência.
+O detector espera RGB uint8; o parser de imagens já entrega RGB.
+
+```bash
+python -m pytest tests/ -v
+```
+
+A suíte cobre ciclo de vida dos tracks, oclusão simulada, normalização, células
+recorrentes e uma execução de treino/avaliação pela CLI em MOT17 mínimo temporário.
+O teste de Faster R-CNN usa pesos aleatórios, sem downloads, e bloqueia o NMS nativo:
+a implementação substitui as chamadas de RPN e RoI pelo NMS autoral somente na
+instância do detector. Esse adaptador depende dos métodos internos do torchvision;
+rode esse teste ao atualizar a biblioteca. Os pesos pré-treinados são obtidos pelo
+wrapper na primeira utilização e ainda precisam ser avaliados em imagens reais.
+
+Na baseline, tracks perdidos ficam disponíveis para reassociação, mas apenas os
+observados no frame são reportados. No temporal, tracks confirmados podem ser
+reportados com caixas preditas durante até `max_age` atualizações sem observação.
+`hits` conta detecções associadas, incluindo o nascimento; `age` conta atualizações.
+No teste de framerate, cada frame amostrado corresponde a uma atualização e as
+métricas consideram somente esses frames.
+
+A avaliação temporal exige checkpoint existente. Para arquiteturas diferentes,
+passe também `--cell_type`, `--hidden_dim` e `--num_layers` correspondentes ao treino.
+Os experimentos reais dependem do MOT17 em `data/`; galeria e análise de horizonte
+em `scripts/run_failure_gallery.py` ainda são esboços. O script de estresse existente
+ainda contém uma métrica placeholder e não deve ser usado como evidência experimental.
