@@ -106,6 +106,7 @@ python scripts/run_stress_framerate.py --checkpoint checkpoints/motion_gru.pth
 
 ## 5. Inferência Arbitrária e Checkpoint
 
+- Arquivo [`src/metrics.py`](src/metrics.py) contém implementação própria de IDF1. ID switches e fragmentações
 - **Notebook de Inferência:** [`notebooks/inferencia.ipynb`](notebooks/inferencia.ipynb) atua como vitrine técnica do projeto (projetado para a apresentação de 15 minutos). Contém a função autossuficiente `predict_sequence(seq_path, ...)` que recebe qualquer sequência do MOT17 e gera a tira de keyframes e o player interativo JavaScript com identidades coloridas consistentes e métricas, sem retreinar.
 - **Checkpoint Oficial (Trilha A - MotionRNN):**
   - Diferente do PA1 (onde a U-Net pesava ~99 MB e exigia hospedagem externa em GitHub Releases), a rede recorrente de movimento deste trabalho opera sobre coordenadas compactas ($[c_x, c_y, w, h]$), totalizando apenas ~14 mil parâmetros e **56 KB**.
