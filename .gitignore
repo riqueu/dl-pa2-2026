@@ -225,14 +225,12 @@ data/MOT17Labels/
 *.zip
 *.tar.gz
 
-# checkpoints intermediários
+# checkpoints intermediários (pesos volumosos de ablações não são versionados)
 checkpoints/*.pth
 checkpoints/**/*.pth
-
-# Pesos NÃO vão para o git: ~99 MB por checkpoint infla todo clone para sempre.
-# O PA1 aceita link para o modelo final ("link se for grande"); publicar como
-# GitHub Release na entrega e apontar no README.
-checkpoints/best_model.pth
+# O checkpoint oficial da MotionRNN possui apenas 56 KB (~14k parâmetros),
+# sendo versionado diretamente no git para garantir execução imediata (clone-and-run).
+!checkpoints/motion_gru.pth
 
 AGENTS.md
 CLAUDE.md

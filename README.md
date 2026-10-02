@@ -104,9 +104,13 @@ python scripts/run_stress_framerate.py --checkpoint checkpoints/motion_gru.pth
 
 ---
 
-## 5. Inferência Arbitrária
+## 5. Inferência Arbitrária e Checkpoint
 
-- **Notebook:** [`notebooks/inferencia.ipynb`](notebooks/inferencia.ipynb) recebe o caminho de uma sequência MOT17 e gera um vídeo com identidades coloridas consistentes e contagem de objetos únicos, sem retreinar.
+- **Notebook de Inferência:** [`notebooks/inferencia.ipynb`](notebooks/inferencia.ipynb) atua como vitrine técnica do projeto (projetado para a apresentação de 15 minutos). Contém a função autossuficiente `predict_sequence(seq_path, ...)` que recebe qualquer sequência do MOT17 e gera a tira de keyframes e o player interativo JavaScript com identidades coloridas consistentes e métricas, sem retreinar.
+- **Checkpoint Oficial (Trilha A - MotionRNN):**
+  - Diferente do PA1 (onde a U-Net pesava ~99 MB e exigia hospedagem externa em GitHub Releases), a rede recorrente de movimento deste trabalho opera sobre coordenadas compactas ($[c_x, c_y, w, h]$), totalizando apenas ~14 mil parâmetros e **56 KB**.
+  - Por ser ultraleve, o checkpoint oficial [`checkpoints/motion_gru.pth`](checkpoints/motion_gru.pth) já está **versionado diretamente no repositório**, garantindo execução imediata (*clone-and-run*) sem necessidade de downloads manuais ou dependência de links externos.
+  - **Integridade Criptográfica (SHA-256):** `d8dca843a976b37fccbdb7c04d82fdde7200f47a6a47059203f19189d0aa53b0`.
 
 ---
 
