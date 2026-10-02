@@ -37,6 +37,7 @@ c1_code = """%load_ext autoreload
 import os
 import sys
 import json
+import importlib
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
@@ -48,6 +49,9 @@ import torch
 
 # Adiciona o diretório raiz ao path
 sys.path.append(os.path.abspath('..'))
+
+import src.tracking.tracker
+importlib.reload(src.tracking.tracker)
 
 from src.data.mot17 import load_ground_truth, load_detections, load_seqinfo, load_frame_image
 from src.tracking.tracker import TemporalTracker, BaselineTracker
@@ -403,6 +407,11 @@ def predict_sequence(
     iou_threshold: float = 0.3,
 ):
     \"\"\"Executa inferência de rastreamento online em uma sequência qualquer sem retreinar.\"\"\"
+    import importlib
+    import src.tracking.tracker
+    importlib.reload(src.tracking.tracker)
+    from src.tracking.tracker import TemporalTracker, BaselineTracker
+
     if not os.path.exists(seq_path) and os.path.exists(seq_path.replace('../', '')):
         seq_path = seq_path.replace('../', '')
     if not os.path.exists(seq_path):
