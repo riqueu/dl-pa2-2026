@@ -4,7 +4,7 @@ import os
 nb = nbf.v4.new_notebook()
 
 # -------------------------------------------------------------
-# CELL 0: HEADER
+# CELL 0: HEADER (MARKDOWN)
 # -------------------------------------------------------------
 c0_md = """# 🔍 PA2: Identidade ao Longo do Tempo: Detecção, Recorrência e Rastreamento
 **Disciplina:** Aprendizado Profundo | FGV EMAp (2026)  
@@ -25,32 +25,23 @@ O caderno está estruturado em **7 seções diretas**:
 4. **Parte 3:** Ablações Sistemáticas (Eixo 1: 18 configurações de Células Recorrentes $\\times$ TBPTT com 3 seeds).
 5. **Parte 4:** Galeria de Falhas e Análise do Horizonte de Memória ($\\| \\partial L_t / \\partial h_{t-k} \\|$ vs. $k$).
 6. **Parte 5:** Teste de Estresse sob Queda de Framerate (Resiliência inercial vs. colapso de IoU).
-7. **Pipeline Oficial de Inferência em Sequência Arbitrária:** Função autossuficiente (`predict_sequence`) com **múltiplas opções de visualização**:
-   * **Opção 1 (Recomendada):** Player Interativo nativo em JavaScript/Matplotlib (`to_jshtml`) com Play, Pause, controle de velocidade e scrubber.
-   * **Opção 2:** GIF animado em loop contínuo de alta fidelidade (roda em qualquer visualizador).
-   * **Opção 3:** Vídeo H.264 real (compatível com navegadores/VSCode).
-   * **Opção 4:** Tira estática de keyframes anotados em alta resolução.
-   * **Opção 5:** Slider interativo frame-a-frame via `ipywidgets`."""
+7. **Pipeline Oficial de Inferência em Sequência Arbitrária:** Função autossuficiente (`predict_sequence`) exibindo a **tira estática de keyframes** e o **player interativo nativo JavaScript** (com Play, Pause, Step Forward/Backward, Velocidade e Scrubber)."""
 nb.cells.append(nbf.v4.new_markdown_cell(c0_md))
 
 # -------------------------------------------------------------
-# CELL 1: SETUP
+# CELL 1: SETUP (CODE)
 # -------------------------------------------------------------
 c1_code = """import os
 import sys
 import json
-import base64
-import subprocess
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 import matplotlib.animation as anim
 from PIL import Image
-from IPython.display import display, HTML, Image as IPImage
+from IPython.display import display, HTML
 import cv2
 import torch
-import ipywidgets as widgets
-from ipywidgets import interact
 
 # Adiciona o diretório raiz ao path
 sys.path.append(os.path.abspath('..'))
@@ -360,14 +351,13 @@ c14_md = """## Pipeline Oficial de Inferência em Sequência Arbitrária
 > **Entregável Oficial do Edital:**  
 > *\"Recebe o caminho de uma sequência qualquer, devolve os bounding boxes coloridos por identidade e a contagem de objetos únicos. Roda sem retreinar.\"*
 
-### Opções de Exibição do Rastreamento
-Para garantir que a apresentação funcione em qualquer ambiente sem restrições de codecs de vídeo (como problemas com o codec `mp4v` do OpenCV que navegadores e o VS Code não tocam nativamente), disponibilizamos **4 alternativas visuais completas**:
-
-1. **Player Interativo com Controles (`create_interactive_player`)**: Constrói um player interativo com Play, Pause, controle de velocidade e barra deslizante usando a biblioteca padrão JavaScript/Matplotlib (`to_jshtml`). **Funciona em 100% dos navegadores e no VS Code sem depender de codecs de vídeo**.
-2. **GIF Animado em Loop Contínuo (`display_animated_gif`)**: Renderizado em alta fidelidade com paleta otimizada. Roda sozinho em loop contínuo.
-3. **Vídeo H.264 Web-Compatible (`display_video_h264`)**: Transcodificado via ffmpeg para H.264 com pixel format `yuv420p` e embutido em Base64.
-4. **Tira de Keyframes em Alta Resolução**: Painel de quadros anotados para inspeção estática imediata.
-5. **Controle Deslizante Frame-a-Frame (`inspect_frame`)**: Permite pausar e inspecionar qualquer instante via `ipywidgets`."""
+A função `predict_sequence(seq_path, ...)` abaixo atende integralmente a todas as exigências do edital:
+* **Entrada:** `seq_path` (caminho para qualquer sequência do MOT17 ou vídeo com detecções).
+* **Execução:** Processamento frame a frame online, sem retreinar, aplicando o modelo `MotionRNN` e matching ótimo.
+* **Saída e Visualização:**
+  1. **Contagem de Identidades Únicas:** Quantificação total de pedestres confirmados ao longo do tempo.
+  2. **Tira de Keyframes em Alta Resolução:** Painel estático anotado para inspeção imediata das trajetórias coloridas.
+  3. **Player Interativo JavaScript:** Controles nativos com Play, Pause, Avanço/Retrocesso quadro a quadro, ajuste de velocidade e barra deslizante (scrubber)."""
 nb.cells.append(nbf.v4.new_markdown_cell(c14_md))
 
 # -------------------------------------------------------------
@@ -376,8 +366,8 @@ nb.cells.append(nbf.v4.new_markdown_cell(c14_md))
 c15_code = """def create_interactive_player(frames_rgb, tracks_scaled, color_map, fps=12, max_frames=30):
     \"\"\"Player interativo nativo do Matplotlib/JavaScript (to_jshtml).
     
-    Possui Play, Pause, Step Forward/Backward, ajuste de velocidade e scrubber.
-    100% compatível com qualquer navegador, JupyterLab e VS Code (não requer codecs de vídeo).
+    Possui Play, Pause, Step Forward/Backward, ajuste de velocidade e barra de scrubber.
+    100% autossuficiente e compatível com qualquer navegador, JupyterLab e VS Code.
     \"\"\"
     plt.rcParams['animation.embed_limit'] = 50.0
     step = max(1, len(frames_rgb) // max_frames)
@@ -403,32 +393,9 @@ c15_code = """def create_interactive_player(frames_rgb, tracks_scaled, color_map
     return HTML(html_player)
 
 
-def display_animated_gif(gif_path: str):
-    \"\"\"Exibe GIF animado com reprodução automática contínua em loop.\"\"\"
-    if os.path.exists(gif_path):
-        display(IPImage(filename=gif_path))
-    else:
-        print(f'GIF não encontrado: {gif_path}')
-
-
-def display_video_h264(video_path: str, width: int = 700):
-    \"\"\"Exibe vídeo codificado em H.264 real via Base64.\"\"\"
-    if not os.path.exists(video_path):
-        return
-    with open(video_path, 'rb') as f:
-        v_b64 = base64.b64encode(f.read()).decode('ascii')
-    html = f'''<div style=\"text-align: center; margin: 10px 0;\">
-        <video width=\"{width}\" controls autoplay loop muted style=\"border-radius: 8px; box-shadow: 0 4px 10px rgba(0,0,0,0.2);\">
-            <source src=\"data:video/mp4;base64,{v_b64}\" type=\"video/mp4; codecs=avc1.42E01E, mp4a.40.2\">
-        </video>
-    </div>'''
-    display(HTML(html))
-
-
 def predict_sequence(
     seq_path: str,
     checkpoint_path: str = '../checkpoints/motion_gru.pth',
-    output_video_path: str = '../outputs/tracking_demo.mp4',
     max_frames: int = 60,
     iou_threshold: float = 0.3,
 ):
@@ -498,27 +465,7 @@ def predict_sequence(
     colors = generate_distinct_colors(len(all_pred_ids))
     color_map = {tid: tuple(int(c) for c in colors[i]) for i, tid in enumerate(all_pred_ids)}
 
-    # 4. Salvar Vídeo H.264 real e GIF de alta qualidade via ffmpeg
-    gif_path = output_video_path.replace('.mp4', '.gif')
-    if len(vis_frames_rgb) > 0:
-        os.makedirs(os.path.dirname(output_video_path) or '.', exist_ok=True)
-        raw_temp = output_video_path.replace('.mp4', '_raw.mp4')
-        fourcc = cv2.VideoWriter_fourcc(*'mp4v')
-        writer = cv2.VideoWriter(raw_temp, fourcc, 15, (target_w, target_h))
-        for img, trks in zip(vis_frames_rgb, vis_tracks_scaled):
-            vis_rgb = draw_tracks_on_frame(img, trks, color_map=color_map)
-            writer.write(cv2.cvtColor(vis_rgb, cv2.COLOR_RGB2BGR))
-        writer.release()
-
-        # Transcodificar para H.264 real (compatível com web) e criar GIF animado
-        subprocess.run(['ffmpeg', '-y', '-i', raw_temp, '-c:v', 'libx264', '-pix_fmt', 'yuv420p', '-movflags', '+faststart', output_video_path],
-                       stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-        subprocess.run(['ffmpeg', '-y', '-i', output_video_path, '-vf', 'fps=10,scale=540:-1:flags=lanczos,split[s0][s1];[s0]palettegen[p];[s1][p]paletteuse', gif_path],
-                       stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-        if os.path.exists(raw_temp):
-            os.remove(raw_temp)
-
-    # 5. Avaliação Quantitativa se houver GT
+    # 4. Avaliação Quantitativa se houver GT
     metrics = None
     if len(gt_tracks) > 0:
         gt_subset = {tid: {f: b for f, b in fr.items() if f in frames_to_run}
@@ -531,8 +478,6 @@ def predict_sequence(
         'frames_rgb': vis_frames_rgb,
         'tracks_scaled': vis_tracks_scaled,
         'color_map': color_map,
-        'video_path': output_video_path,
-        'gif_path': gif_path,
         'total_frames': len(frames_to_run)
     }"""
 nb.cells.append(nbf.v4.new_code_cell(c15_code))
@@ -542,12 +487,10 @@ nb.cells.append(nbf.v4.new_code_cell(c15_code))
 # -------------------------------------------------------------
 c16_code = """# Executa inferência na sequência de validação MOT17-09-SDP
 sample_seq_path = '../data/MOT17/train/MOT17-09-SDP'
-demo_video = '../outputs/tracking_demo.mp4'
 
 result = predict_sequence(
     seq_path=sample_seq_path,
     checkpoint_path='../checkpoints/motion_gru.pth',
-    output_video_path=demo_video,
     max_frames=60,
     iou_threshold=0.3
 )
@@ -587,49 +530,9 @@ plt.show()
 # 2. Player Interativo Nativo com Controles (Matplotlib to_jshtml)
 # -------------------------------------------------------------
 print("▶ PLAYER INTERATIVO JAVASCRIPT (Play, Pause, Step Forward/Backward, Velocidade e Scrubber):")
-display(create_interactive_player(result['frames_rgb'], result['tracks_scaled'], result['color_map'], fps=12, max_frames=30))
-
-# -------------------------------------------------------------
-# 3. GIF Animado em Loop Contínuo (Funciona em 100% dos viewers)
-# -------------------------------------------------------------
-print("\\n▶ REPRODUÇÃO CONTÍNUA EM LOOP (GIF ANIMADO):")
-display_animated_gif(result['gif_path'])
-
-# -------------------------------------------------------------
-# 4. Vídeo H.264 Web-Compatible
-# -------------------------------------------------------------
-print("\\n▶ VÍDEO H.264 (COMPATÍVEL COM NAVEGADORES):")
-display_video_h264(result['video_path'], width=680)"""
+display(create_interactive_player(result['frames_rgb'], result['tracks_scaled'], result['color_map'], fps=12, max_frames=30))"""
 nb.cells.append(nbf.v4.new_code_cell(c16_code))
-
-# -------------------------------------------------------------
-# CELL 17: CONTROLE DESLIZANTE FRAME A FRAME (IPYWIDGETS)
-# -------------------------------------------------------------
-c17_code = """# -------------------------------------------------------------
-# 5. Controle Deslizante Interativo Frame a Frame (ipywidgets)
-# -------------------------------------------------------------
-# Permite à banca pausar e inspecionar qualquer frame específico
-def inspect_frame(frame=1):
-    f_idx = frame - 1
-    vis_rgb = draw_tracks_on_frame(
-        result['frames_rgb'][f_idx],
-        result['tracks_scaled'][f_idx],
-        color_map=result['color_map']
-    )
-    fig, ax = plt.subplots(figsize=(8, 4.5))
-    ax.imshow(vis_rgb)
-    ax.set_title(f"Inspeção Detalhada: Frame {frame}/{len(result['frames_rgb'])} | {len(result['tracks_scaled'][f_idx])} pedestres ativos", fontsize=11, fontweight='bold')
-    ax.axis('off')
-    plt.tight_layout()
-    plt.show()
-
-# Exibe o frame de maior densidade (Frame 30):
-inspect_frame(frame=min(30, len(result['frames_rgb'])))
-
-# Para habilitar a barra deslizante interativa ao vivo na apresentação, descomente:
-# interact(inspect_frame, frame=(1, len(result['frames_rgb'])))"""
-nb.cells.append(nbf.v4.new_code_cell(c17_code))
 
 os.makedirs('notebooks', exist_ok=True)
 nbf.write(nb, 'notebooks/inferencia.ipynb')
-print('Notebook notebooks/inferencia.ipynb atualizado com sucesso com todos os players!')
+print('Notebook notebooks/inferencia.ipynb gerado com sucesso (apenas Tira de Keyframes e Player Interativo)!')
