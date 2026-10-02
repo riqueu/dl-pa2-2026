@@ -1,0 +1,16 @@
+{
+  "cell_type": "gru",
+  "hidden_dim": 64,
+  "input_dim": 4,
+  "num_layers": 1,
+  "epochs": 5,
+  "lr": 0.001,
+  "tbptt_len": 16,
+  "seed": 42,
+  "batch_size": 32,
+  "det_type": "SDP",
+  "data_root": "data",
+  "checkpoint": "checkpoints/motion_gru.pth",
+  "out": "runs/part2_gru",
+  "device": "cuda"
+}
