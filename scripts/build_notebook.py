@@ -31,7 +31,10 @@ nb.cells.append(nbf.v4.new_markdown_cell(c0_md))
 # -------------------------------------------------------------
 # CELL 1: SETUP (CODE)
 # -------------------------------------------------------------
-c1_code = """import os
+c1_code = """%load_ext autoreload
+%autoreload 2
+
+import os
 import sys
 import json
 import numpy as np
@@ -427,7 +430,9 @@ def predict_sequence(
             matching='hungarian',
             device=str(device),
             img_width=float(im_w),
-            img_height=float(im_h)
+            img_height=float(im_h),
+            max_shift=30.0,
+            max_coast=0
         )
     else:
         tracker = BaselineTracker(iou_threshold=iou_threshold, max_age=30, min_hits=3, matching='hungarian')
