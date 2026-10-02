@@ -1,7 +1,7 @@
 {
-    "mean_idf1": 0.53115,
-    "mean_id_switches": 145.0,
-    "mean_fragmentations": 202.0,
-    "mean_unique_id_error": 36.0,
-    "mean_n_gt_tracks": 41.5
+    "idf1": 0.44656115870342467,
+    "id_switches": 665.5,
+    "fragmentations": 475.0,
+    "unique_id_error": 195.0,
+    "n_gt_tracks": 41.5
 }

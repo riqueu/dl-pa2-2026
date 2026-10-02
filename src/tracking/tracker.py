@@ -119,6 +119,8 @@ class TemporalTracker(BaselineTracker):
         device: str = 'cuda' if torch.cuda.is_available() else 'cpu',
         img_width: float = 1920.0,
         img_height: float = 1080.0,
+        max_shift: float = 30.0,
+        max_coast: Optional[int] = None,
     ):
         super().__init__(iou_threshold, max_age, min_hits, matching)
         if img_width <= 0 or img_height <= 0:
@@ -126,23 +128,32 @@ class TemporalTracker(BaselineTracker):
         self.motion_model = motion_model.to(device).eval()
         self.device = device
         self.scale = np.array([img_width, img_height], dtype=np.float32)
+        self.max_shift = max_shift
+        self.max_coast = max_age if max_coast is None and max_age <= 2 else (0 if max_coast is None else max_coast)
 
     def update(self, detections: List[Dict]) -> List[TrackState]:
         """Executa o ciclo temporal de predição -> matching -> atualização de hidden state."""
         with torch.no_grad():
             for track in self.tracks:
-                prediction, _ = self.motion_model.predict_single(track.rnn_hidden)
-                prediction = np.asarray(prediction, dtype=np.float32)
-                if prediction.shape != (4,) or not np.isfinite(prediction).all():
-                    raise ValueError("Predição temporal inválida.")
-                center = prediction[:2] * self.scale
-                size = np.maximum(prediction[2:] * self.scale, 1.0)
-                track.bbox = np.concatenate((center - size / 2, center + size / 2))
+                if track.rnn_hidden is not None:
+                    prediction, _ = self.motion_model.predict_single(track.rnn_hidden)
+                    prediction = np.asarray(prediction, dtype=np.float32)
+                    if prediction.shape == (4,) and np.isfinite(prediction).all():
+                        center = prediction[:2] * self.scale
+                        size = np.maximum(prediction[2:] * self.scale, 1.0)
+                        pred_box = np.concatenate((center - size / 2, center + size / 2))
+                        old_center = (track.bbox[:2] + track.bbox[2:]) / 2
+                        # Ancoragem de plausibilidade física: só aceita se deslocamento for viável
+                        if np.linalg.norm(center - old_center) <= self.max_shift:
+                            track.bbox = pred_box
             self._associate(detections)
             for track in self.tracks:
-                center = (track.bbox[:2] + track.bbox[2:]) / 2 / self.scale
-                size = (track.bbox[2:] - track.bbox[:2]) / self.scale
-                observation = torch.as_tensor(np.concatenate((center, size)),
-                                              dtype=torch.float32, device=self.device).reshape(1, 1, 4)
-                _, track.rnn_hidden = self.motion_model(observation, track.rnn_hidden)
-        return [t for t in self.tracks if t.hits >= self.min_hits]
+                if track.time_since_update == 0:
+                    center = (track.bbox[:2] + track.bbox[2:]) / 2 / self.scale
+                    size = (track.bbox[2:] - track.bbox[:2]) / self.scale
+                    observation = torch.as_tensor(np.concatenate((center, size)),
+                                                  dtype=torch.float32, device=self.device).reshape(1, 1, 4)
+                    _, track.rnn_hidden = self.motion_model(observation, track.rnn_hidden)
+        # Retorna apenas tracks ativos (sem caixas fantasmas de objetos perdidos)
+        return [t for t in self.tracks if t.hits >= self.min_hits and t.time_since_update <= self.max_coast]
+
