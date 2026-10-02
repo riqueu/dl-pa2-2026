@@ -4,7 +4,7 @@ Uso de ferramentas de IA como suporte de pair programming, planejamento e divis�
 
 ---
 
-## 2026-10-01 — Implementação da parte de Isaías
+## Implementação da parte de Isaías
 
 Codex foi usado para implementar NMS NumPy, carregador MOT17, wrapper Faster R-CNN,
 ciclo de vida dos trackers e modelo RNN/LSTM/GRU com TBPTT. A integração corrigiu os
@@ -20,7 +20,7 @@ de IDF1 em sequências reais. A revisão e interpretação pela dupla seguem pen
 
 ---
 
-## 2026-10-01 — Planejamento Inicial e Depuração de Rastreamento (Henrique & Isaías)
+## Planejamento Inicial e Depuração de Rastreamento (Henrique & Isaías)
 
 A IA foi utilizada para estruturar o planejamento inicial do projeto (`docs/plano_pa2.md`), definindo interfaces modulares e a divisão de escopo entre os integrantes.
 
