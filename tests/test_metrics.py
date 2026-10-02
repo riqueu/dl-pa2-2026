@@ -46,7 +46,7 @@ def test_swapped_ids():
 
 
 def test_split_tracks():
-    """Um GT track com gap entre pred tracks → fragmentations ≥ 1."""
+    """Após uma lacuna, um novo ID gera uma fragmentação e uma troca."""
     gt_tracks = {
         1: {i: np.array([10.0, 10, 20, 20]) for i in range(1, 21)},
     }
@@ -57,7 +57,9 @@ def test_split_tracks():
         2: {i: np.array([10.0, 10, 20, 20]) for i in range(12, 21)},
     }
     frags = count_fragmentations(gt_tracks, pred_tracks)
-    assert frags >= 1, f"Expected fragmentations >= 1, got {frags}"
+    assert frags == 1
+    assert count_id_switches(gt_tracks, pred_tracks) == 1
+    assert count_unique_id_error(gt_tracks, pred_tracks) == 1
 
 
 def test_empty_predictions():

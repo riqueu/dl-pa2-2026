@@ -29,3 +29,13 @@ Na fase de integração e validação visual no notebook de inferência, a IA au
 2. **Confinamento cinemático da RNN:** Diagnóstico de instabilidades pontuais no estado oculto da rede de movimento que causavam saltos abruptos de bounding boxes e explosão de novos IDs, estabilizado com *gating* de plausibilidade física (`max_shift`).
 
 Todas as hipóteses, soluções e análises teóricas foram testadas via suíte automatizada (37/37 testes aprovados) e validadas pela dupla no MOT17.
+
+
+## 2026-10-02 — Correção da explicação do teste sintético
+
+Codex reproduziu os três casos de `create_metric_edge_cases()` e confirmou que
+uma trajetória dividida com lacuna gera uma fragmentação, uma troca de ID e um
+ID adicional. A métrica preserva a última associação durante a lacuna. Foi
+corrigido o resumo da Parte 0 no notebook, que afirmava ausência de trocas nesse
+caso, e reforçado o teste correspondente com valores exatos. As métricas e os
+resultados experimentais salvos não foram alterados.
